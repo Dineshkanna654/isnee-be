@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { AuthRepo } from './auth.repo';
+import { EmailService } from '../email/email.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -13,7 +14,10 @@ import { PhoneVerificationDto, Enable2FADto, Verify2FADto, ResendOTPDto } from '
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly authRepo: AuthRepo) {}
+  constructor(
+    private readonly authRepo: AuthRepo,
+    private readonly emailService: EmailService,
+  ) {}
 
   private generateTokens(userId: string, email: string) {
     const accessToken = jwt.sign(
@@ -68,6 +72,12 @@ export class AuthService {
       token: verificationToken,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
+
+    try {
+      await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    } catch (error) {
+      console.error('Failed to send verification email:', error.message);
+    }
 
     const tokens = this.generateTokens(user.id, user.email);
 
@@ -232,6 +242,12 @@ export class AuthService {
       expires_at: new Date(Date.now() + 60 * 60 * 1000),
     });
 
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    } catch (error) {
+      console.error('Failed to send password reset email:', error.message);
+    }
+
     return { message: 'If the email exists, a reset link has been sent' };
   }
 
@@ -285,6 +301,13 @@ export class AuthService {
       token: verificationToken,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
+
+    try {
+      await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    } catch (error) {
+      console.error('Failed to send verification email:', error.message);
+      throw new BadRequestException('Failed to send verification email');
+    }
 
     return { message: 'Verification email sent' };
   }
